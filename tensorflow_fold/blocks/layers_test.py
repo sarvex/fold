@@ -186,7 +186,7 @@ class LayersTest(test_lib.TestCase):
     with self.test_session() as sess:
       sess.run(tf.global_variables_initializer())
       old_loss = loss.eval(feed_dict)
-      for unused_iteration in range(20):
+      for _ in range(20):
         sess.run([trainer], feed_dict)
       new_loss = loss.eval(feed_dict)
       self.assertLess(new_loss, old_loss)
@@ -212,7 +212,7 @@ class LayersTest(test_lib.TestCase):
       np.random.seed(42)
       fractal_net.drop_path = False
       old_loss = loss.eval(feed_dict)
-      for unused_iteration in range(100):
+      for _ in range(100):
         fractal_net.drop_path = True
         sess.run([trainer], feed_dict)
       fractal_net.drop_path = False

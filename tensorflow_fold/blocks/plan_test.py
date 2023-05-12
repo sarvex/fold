@@ -453,14 +453,12 @@ class TrainPlanTest(PlanTestBase):
       p.run(sv, sess)
       expected_lines = [
           'epoch:    1 train[loss: 1.100e+01] dev[loss: 1.600e+01]',
-          'new best model saved in file: %s' % (
-              os.path.join(p.logdir, 'model.ckpt-2')),
+          f"new best model saved in file: {os.path.join(p.logdir, 'model.ckpt-2')}",
           'epoch:    2 train[loss: 7.000e+00] dev[loss: 8.000e+00]',
-          'new best model saved in file: %s' % (
-              os.path.join(p.logdir, 'model.ckpt-4')),
+          f"new best model saved in file: {os.path.join(p.logdir, 'model.ckpt-4')}",
           'epoch:    3 train[loss: 3.000e+00] dev[loss: 0.000e+00]',
-          'new best model saved in file: %s' % (
-              os.path.join(p.logdir, 'model.ckpt-6'))]
+          f"new best model saved in file: {os.path.join(p.logdir, 'model.ckpt-6')}",
+      ]
       expected = '\n'.join(expected_lines) + '\n'
       log_str = p.print_file.getvalue()
       self.assertTrue(log_str.endswith(expected), msg=log_str)
@@ -529,11 +527,13 @@ class TrainPlanTest(PlanTestBase):
     with self.test_session() as sess:
       sess.run(init_op)
       p.run(sv, sess)
-      expected = '\n'.join(['running train',
-                            'train_size: 6',
-                            'epoch:    1 train[loss: 0.000e+00]',
-                            'epoch:    2 train[loss: 0.000e+00]',
-                            'final model saved in file: %s' % p.logdir])
+      expected = '\n'.join([
+          'running train',
+          'train_size: 6',
+          'epoch:    1 train[loss: 0.000e+00]',
+          'epoch:    2 train[loss: 0.000e+00]',
+          f'final model saved in file: {p.logdir}',
+      ])
       log_str = p.print_file.getvalue()
       self.assertIn(expected, log_str)
       self.assertEqual(12, sess.run(q_size))
@@ -568,11 +568,13 @@ class TrainPlanTest(PlanTestBase):
       sess.run(init_op)
       sess.run(q_enqueue)
       p.run(sv, sess)
-    expected = '\n'.join(['running train',
-                          'train_size: 6',
-                          'epoch:    1 train[loss: 7.000e+00]',
-                          'epoch:    2 train[loss: 7.000e+00]',
-                          'final model saved in file: %s' % p.logdir])
+    expected = '\n'.join([
+        'running train',
+        'train_size: 6',
+        'epoch:    1 train[loss: 7.000e+00]',
+        'epoch:    2 train[loss: 7.000e+00]',
+        f'final model saved in file: {p.logdir}',
+    ])
     log_str = p.print_file.getvalue()
     self.assertIn(expected, log_str)
 
@@ -662,8 +664,10 @@ class EvalPlanTest(PlanTestBase):
       sv.saver.save(sess, save_path, global_step=42)
       p.run(sv, sess)
       log_str = p.print_file.getvalue()
-      expected_lines = ['restoring from %s-42' % save_path,
-                        'step:       0 loss: 3.000e+00 foo: 4.200e+01']
+      expected_lines = [
+          f'restoring from {save_path}-42',
+          'step:       0 loss: 3.000e+00 foo: 4.200e+01',
+      ]
       expected = '\n'.join(expected_lines) + '\n'
       self.assertTrue(log_str.endswith(expected), msg=log_str)
 
@@ -690,10 +694,11 @@ class EvalPlanTest(PlanTestBase):
           tf.Summary.Value(tag='loss', simple_value=3)])
       m.assert_called_once_with(sess, expected_summary, global_step=42)
       log_str = p.print_file.getvalue()
-      expected_lines = ['restoring from %s-42' % save_path,
-                        'step:      42 loss: 3.000e+00 foo: 4.200e+01',
-                        ('new best model saved in file: %s' %
-                         os.path.join(p.logdir, 'model.ckpt-42'))]
+      expected_lines = [
+          f'restoring from {save_path}-42',
+          'step:      42 loss: 3.000e+00 foo: 4.200e+01',
+          f"new best model saved in file: {os.path.join(p.logdir, 'model.ckpt-42')}",
+      ]
       expected = '\n'.join(expected_lines) + '\n'
       self.assertTrue(log_str.endswith(expected), msg=log_str)
 
@@ -703,8 +708,10 @@ class EvalPlanTest(PlanTestBase):
       p.save_best = False
       p.run(sv, sess)
       log_str = p.print_file.getvalue()
-      expected_lines = ['restoring from %s-42' % save_path,
-                        'step:      42 loss: 4.000e+00 foo: 4.200e+01']
+      expected_lines = [
+          f'restoring from {save_path}-42',
+          'step:      42 loss: 4.000e+00 foo: 4.200e+01',
+      ]
       expected = '\n'.join(expected_lines) + '\n'
       self.assertTrue(log_str.endswith(expected), msg=log_str)
 
@@ -723,9 +730,11 @@ class EvalPlanTest(PlanTestBase):
       sess.run(init_op)
       p.run(sv, sess)
       log_str = p.print_file.getvalue()
-      expected_lines = ['restoring from %s' % model_path,
-                        'step:      42 loss: 3.000e+00 foo: 4.200e+01',
-                        ('new best model saved in file: %s' % model_path)]
+      expected_lines = [
+          f'restoring from {model_path}',
+          'step:      42 loss: 3.000e+00 foo: 4.200e+01',
+          f'new best model saved in file: {model_path}',
+      ]
       expected = '\n'.join(expected_lines) + '\n'
       self.assertTrue(log_str.endswith(expected), msg=log_str)
 
@@ -747,13 +756,14 @@ class EvalPlanTest(PlanTestBase):
       p.run(sv, sess)
       log_str = p.print_file.getvalue()
       expected_lines = [
-          'restoring from %s-42' % save_path,
+          f'restoring from {save_path}-42',
           'step:       0 loss: 3.000e+00 foo: 4.200e+01 bar: 4.300e+01',
           'baz:',
           '[4.400e+01 4.500e+01]',
           'qux:',
           '[4.600e+01 4.700e+01]',
-          'quux: 4.800e+01']
+          'quux: 4.800e+01',
+      ]
       expected = '\n'.join(expected_lines) + '\n'
       self.assertTrue(log_str.endswith(expected), msg=log_str)
 

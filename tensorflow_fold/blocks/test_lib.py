@@ -73,12 +73,12 @@ class TestCase(tf.test.TestCase):
     # Avoid spamming the user toooo much
     max_problems_to_show = self.maxDiff // 80
     if len(problems) > max_problems_to_show:
-      problems = problems[0:max_problems_to_show-1] + ['...']
+      problems = problems[:max_problems_to_show-1] + ['...']
 
     if problems:
       failure_message = '; '.join(problems)
       if msg:
-        failure_message += (': ' + msg)
+        failure_message += f': {msg}'
       self.fail(failure_message)
 
 
@@ -104,7 +104,6 @@ def _walk_structure_for_problems(a, b, aname, bname, problem_list):
       if k not in a:
         problem_list.append('%s lacks [%r] but %s has it' % (aname, k, bname))
 
-  # Strings are Sequences but we'll just do those with regular !=
   elif (isinstance(a, collections.Sequence) and
         not isinstance(a, six.string_types)):
     minlen = min(len(a), len(b))
@@ -117,9 +116,8 @@ def _walk_structure_for_problems(a, b, aname, bname, problem_list):
     for i in xrange(minlen, len(b)):
       problem_list.append('%s lacks [%i] but %s has it' % (aname, i, bname))
 
-  else:
-    if a != b:
-      problem_list.append('%s is %r but %s is %r' % (aname, a, bname, b))
+  elif a != b:
+    problem_list.append('%s is %r but %s is %r' % (aname, a, bname, b))
 
 
 def main():

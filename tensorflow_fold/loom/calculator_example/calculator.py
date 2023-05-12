@@ -90,9 +90,6 @@ def evaluate_expression(expression):
   if expression.op == calculator_pb2.CalculatorExpression.TIMES:
     return a * b
   if expression.op == calculator_pb2.CalculatorExpression.DIV:
-    if b == 0:
-      return 0
-    else:
-      return a // b
+    return 0 if b == 0 else a // b
   else:
-    raise NameError('Unrecognized op: ' + expression.op)
+    raise NameError(f'Unrecognized op: {expression.op}')

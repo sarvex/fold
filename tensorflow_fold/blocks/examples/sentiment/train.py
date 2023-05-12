@@ -43,15 +43,15 @@ flags.DEFINE_float(
 
 
 def main(_):
-  print('loading word embeddings from %s' % FLAGS.embedding_file)
+  print(f'loading word embeddings from {FLAGS.embedding_file}')
   weight_matrix, word_idx = sentiment.load_embeddings(FLAGS.embedding_file)
 
   train_file = os.path.join(FLAGS.tree_dir, 'train.txt')
-  print('loading training trees from %s' % train_file)
+  print(f'loading training trees from {train_file}')
   train_trees = sentiment.load_trees(train_file)
 
   dev_file = os.path.join(FLAGS.tree_dir, 'dev.txt')
-  print('loading dev trees from %s' % dev_file)
+  print(f'loading dev trees from {dev_file}')
   dev_trees = sentiment.load_trees(dev_file)
 
   with tf.Session() as sess:
@@ -98,7 +98,7 @@ def main(_):
         if dev_hits > dev_hits_best:
           dev_hits_best = dev_hits
           save_path = saver.save(sess, FLAGS.checkpoint_base, global_step=epoch)
-          print('model saved in file: %s' % save_path)
+          print(f'model saved in file: {save_path}')
 
 if __name__ == '__main__':
   tf.app.run()

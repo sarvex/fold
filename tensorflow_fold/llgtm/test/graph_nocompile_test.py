@@ -7,5 +7,3 @@ class GraphNoCompileTest(object):
     # Not currently implemented in open source.
     pass
 
-if __name__ == '__main__':
-  pass

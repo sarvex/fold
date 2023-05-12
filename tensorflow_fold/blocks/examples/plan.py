@@ -212,12 +212,12 @@ class Plan(object):
   def create_supervisor(self):
     """Creates a TF supervisor for running the plan."""
     self.assert_runnable()
-    self.log_and_print('creating supervisor with logdir %s' % self.logdir)
+    self.log_and_print(f'creating supervisor with logdir {self.logdir}')
     supervisor_kwargs = dict(
         logdir=self.logdir, summary_op=None, global_step=self._global_step,
         save_summaries_secs=120,
         summary_writer=tf.train.Supervisor.USE_DEFAULT)
-    supervisor_kwargs.update(self._supervisor_kwargs())
+    supervisor_kwargs |= self._supervisor_kwargs()
     return tf.train.Supervisor(**supervisor_kwargs)
 
   def _supervisor_kwargs(self):
@@ -246,7 +246,7 @@ class Plan(object):
       return
 
     tf.gfile.MakeDirs(self.logdir)
-    self.log_and_print('running %s' % self.mode)
+    self.log_and_print(f'running {self.mode}')
     with session.as_default():
       self._run(supervisor, session)
 
@@ -262,7 +262,7 @@ class Plan(object):
       self._best_loss = loss
       save_path = os.path.join(self.logdir, 'model.ckpt')
       save_fname = saver.save(session, save_path, global_step=step)
-      self.log_and_print('new best model saved in file: %s' % save_fname)
+      self.log_and_print(f'new best model saved in file: {save_fname}')
 
   def _eval_batches(self, supervisor, session, batches, step, is_dev=False):
     """Runs a batchwise eval.
@@ -364,9 +364,12 @@ class TrainPlan(Plan):
 
   def _run(self, supervisor, session):
     train_feed_dict = self.train_feeds.copy()
-    train_fetches = {'train_op': self.train_op, 'loss': self._loss_total,
-                     'step': self._global_step}
-    train_fetches['summaries'] = self._summaries
+    train_fetches = {
+        'train_op': self.train_op,
+        'loss': self._loss_total,
+        'step': self._global_step,
+        'summaries': self._summaries,
+    }
     epochs, train_size = self._by_feed_dict(train_feed_dict)
     if self.dev_examples:
       # Memoize a generator of batches of (size, feed_dict) pairs.
@@ -404,17 +407,16 @@ class TrainPlan(Plan):
             is_dev=True)
         if epoch == 1: self.log_and_print('train_size: %d dev_size: %d' %
                                           (train_size, dev_size))
-        log_str += ' dev[%s]' % _eval_str(dev_size, dev_loss, dev_metrics)
+        log_str += f' dev[{_eval_str(dev_size, dev_loss, dev_metrics)}]'
         self._save_best(session, supervisor.saver, dev_loss, results['step'])
-      else:
-        if epoch == 1: self.log_and_print('train_size: %d' % train_size)
+      elif epoch == 1: self.log_and_print('train_size: %d' % train_size)
       self.log_and_print(log_str)
 
     if not self.dev_examples:
       save_path = os.path.join(self.logdir, 'model.ckpt')
       save_fname = supervisor.saver.save(
           session, save_path, global_step=results['step'])
-      self.log_and_print('final model saved in file: %s' % save_fname)
+      self.log_and_print(f'final model saved in file: {save_fname}')
 
   def _by_feed_dict(self, feed_dict):
     """Setup for reading training data from feed dictionaries."""
@@ -490,10 +492,10 @@ class EvalPlan(_StreamingPlan):
     """Tries to restore a checkpoint, returns True on success."""
     ckpt = tf.train.get_checkpoint_state(self.logdir_restore)
     if ckpt and ckpt.model_checkpoint_path:
-      self.log_and_print('restoring from %s' % ckpt.model_checkpoint_path)
+      self.log_and_print(f'restoring from {ckpt.model_checkpoint_path}')
       supervisor.saver.restore(session, ckpt.model_checkpoint_path)
       return True
-    self.log_and_print('could not restore from %s' % self.logdir_restore)
+    self.log_and_print(f'could not restore from {self.logdir_restore}')
     return False
 
 

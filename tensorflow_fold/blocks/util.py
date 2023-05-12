@@ -107,7 +107,7 @@ def group_by_batches(iterable, batch_size, truncate=False):
   """
   iterator = iter(iterable)
   if batch_size <= 0:
-    raise ValueError('batch_size must be positive: %s' % (batch_size,))
+    raise ValueError(f'batch_size must be positive: {batch_size}')
   if truncate:
     for batch in zip(*(iterator,) * batch_size):
       yield list(batch)
@@ -152,9 +152,9 @@ def epochs(items, n=None, shuffle=True, prng=None):
 
   """
   if not isinstance(items, collections.Iterable):
-    raise TypeError('items must be an iterable: %s' % (items,))
+    raise TypeError(f'items must be an iterable: {items}')
   if n is not None and n < 0:
-    raise ValueError('n must be non-negative: %s' % (n,))
+    raise ValueError(f'n must be non-negative: {n}')
   if n == 1:
     yield items
     return

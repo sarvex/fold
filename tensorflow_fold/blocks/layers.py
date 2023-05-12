@@ -61,7 +61,7 @@ class Layer(tdt.IOBase):
     super(Layer, self).__init__(input_type, output_type, name)
 
     if not hasattr(self, '_constructor_name'):
-      self._constructor_name = '__.%s' % self.__class__.__name__
+      self._constructor_name = f'__.{self.__class__.__name__}'
     if not hasattr(self, '_constructor_args'):
       self._constructor_args = None
     if not hasattr(self, '_constructor_kwargs'):
@@ -122,16 +122,13 @@ def create_variable_scope(name):
 
   """
   if not isinstance(name, six.string_types):
-    raise TypeError('name must be a string: %s' % (name,))
+    raise TypeError(f'name must be a string: {name}')
   if not name: raise ValueError('name must be non-empty')
   if name.endswith('/'):
     with tf.variable_scope(name) as scope:
       return scope
   current_scope_name = tf.get_variable_scope().name
-  if current_scope_name:
-    full_name = '%s/%s' % (current_scope_name, name)
-  else:
-    full_name = name
+  full_name = f'{current_scope_name}/{name}' if current_scope_name else name
   # We rely on the fact that every variable scope has a name scope
   # with the exact same name, so a unique name scope is by
   # implication also a unique name for a variable scope.
@@ -311,11 +308,9 @@ class FC(TensorToTensorLayer):
 
   def _create_variables(self):
     if self.input_type.dtype != 'float32':
-      raise TypeError('FC input dtype must be float32: %s' %
-                      self.input_type.dtype)
+      raise TypeError(f'FC input dtype must be float32: {self.input_type.dtype}')
     if self.input_type.ndim != 1:
-      raise TypeError('FC input shape must be 1D: %s' %
-                      str(self.input_type.shape))
+      raise TypeError(f'FC input shape must be 1D: {str(self.input_type.shape)}')
     self._bias = tf.get_variable(
         'bias', self.output_type.shape, initializer=tf.constant_initializer(0))
     self._weights = tf.get_variable(
@@ -407,13 +402,13 @@ class Embedding(TensorToTensorLayer):
       raise TypeError('Embeddings take scalar inputs.')
     dtype = tf.as_dtype(self.input_type.dtype)
     if not dtype.is_integer: raise TypeError('Embeddings take integer inputs.')
-    if dtype not in (tf.int32, tf.int64):  # only dtypes supported by tf.gather
-      if np.iinfo(dtype.as_numpy_dtype).max > 2147483647:
-         # pedantic future-proofing to handle hypothetical tf.uint64
-        raise TypeError('cannot gather or upcast dtype %s' % dtype)
-      self._cast = True
-    else:
+    if dtype in (tf.int32, tf.int64):
       self._cast = False
+    elif np.iinfo(dtype.as_numpy_dtype).max > 2147483647:
+         # pedantic future-proofing to handle hypothetical tf.uint64
+      raise TypeError(f'cannot gather or upcast dtype {dtype}')
+    else:
+      self._cast = True
     self._weights = tf.get_variable(
         'weights', self._weights_shape, initializer=self._initializer,
         trainable=self._trainable)
@@ -560,31 +555,33 @@ class FractalNet(TensorToTensorLayer):
   def _instantiate_subnet(self, batch, block_idx, seq_prefix):
     def zeros_fn():
       return tf.zeros_like(batch)
+
     def base_case_fn():
       return self._children[block_idx, seq_prefix](batch)
+
     def recursive_case_fn():
       first_subnet = self._instantiate_subnet(
           batch, block_idx, seq_prefix + (0,))
       return self._instantiate_subnet(
           first_subnet, block_idx, seq_prefix + (1,))
+
     if len(seq_prefix) == self._fractal_block_depth:
       return base_case_fn()
-    else:
-      choice = self._drop_path_choices[self._choice_id[(block_idx, seq_prefix)]]
-      base_case = tf.cond(
-          tf.not_equal(choice, self._JUST_RECURSE), base_case_fn, zeros_fn)
-      base_case.set_shape(batch.get_shape())
-      recursive_case = tf.cond(
-          tf.not_equal(choice, self._JUST_BASE), recursive_case_fn, zeros_fn)
-      recursive_case.set_shape(batch.get_shape())
-      cases = [
-          (tf.equal(choice, self._BOTH),
-           lambda: self._mixer(base_case, recursive_case)),
-          (tf.equal(choice, self._JUST_BASE), lambda: base_case),
-          (tf.equal(choice, self._JUST_RECURSE), lambda: recursive_case)]
-      result = tf.case(cases, lambda: base_case)
-      result.set_shape(batch.get_shape())
-      return result
+    choice = self._drop_path_choices[self._choice_id[(block_idx, seq_prefix)]]
+    base_case = tf.cond(
+        tf.not_equal(choice, self._JUST_RECURSE), base_case_fn, zeros_fn)
+    base_case.set_shape(batch.get_shape())
+    recursive_case = tf.cond(
+        tf.not_equal(choice, self._JUST_BASE), recursive_case_fn, zeros_fn)
+    recursive_case.set_shape(batch.get_shape())
+    cases = [
+        (tf.equal(choice, self._BOTH),
+         lambda: self._mixer(base_case, recursive_case)),
+        (tf.equal(choice, self._JUST_BASE), lambda: base_case),
+        (tf.equal(choice, self._JUST_RECURSE), lambda: recursive_case)]
+    result = tf.case(cases, lambda: base_case)
+    result.set_shape(batch.get_shape())
+    return result
 
   def _process_batch(self, batch):
     for block_idx in xrange(self._num_fractal_blocks):
@@ -662,7 +659,7 @@ def get_local_arguments(fun, is_method=False):
 
   lvals = argvals.locals
   num_args = len(argspec.args) - len(argspec.defaults)
-  arg_names = argspec.args[0:num_args]
+  arg_names = argspec.args[:num_args]
   kwarg_names = argspec.args[num_args:]
 
   args = [lvals[k] for k in arg_names]

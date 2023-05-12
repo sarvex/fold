@@ -26,10 +26,7 @@ import tensorflow_fold.blocks.metrics as tdm
 
 
 def _ispositive(x):
-  if isinstance(x, list):
-    return x[0] > 0
-  else:
-    return x > 0
+  return x[0] > 0 if isinstance(x, list) else x > 0
 
 
 def _pos_neg_block(shape):

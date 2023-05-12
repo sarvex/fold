@@ -107,8 +107,9 @@ class _CompilerContext(object):
       self._metric_ops[name] = op
       self._op_to_name[op] = name
     elif self.metric_ops[name].passthrough_types[0] != typ:
-      raise TypeError('Metric %s has incompatible types: %s vs %s' %
-                      (name, self.metric_ops[name].passthrough_types[0], typ))
+      raise TypeError(
+          f'Metric {name} has incompatible types: {self.metric_ops[name].passthrough_types[0]} vs {typ}'
+      )
 
   def create_tagged_loom(self, passthrough_types, max_depth=None,
                          loom_input_tensor=None, dry_run=False,
@@ -308,7 +309,7 @@ class Compiler(object):
 
     if not interactive_mode:
       if any(isinstance(t, tdt.PyObjectType) for t in terminal_ts):
-        raise TypeError('root outputs must all be tensors: %s' % out_type)
+        raise TypeError(f'root outputs must all be tensors: {out_type}')
       if not (tensor_ts or self._ctx.metric_ops):
         raise TypeError('root must have at least one output or metric tensor: '
                         '%s' % out_type)
@@ -316,15 +317,12 @@ class Compiler(object):
       while subtypes:
         subtype = subtypes.pop()
         if isinstance(subtype, tdt.SequenceType):
-          raise TypeError('root output may not contain sequences %s' % out_type)
+          raise TypeError(f'root output may not contain sequences {out_type}')
         if isinstance(subtype, tdt.TupleType):
           subtypes.extend(subtype)
 
       flatten = out_type.flatten
-      if not tensor_ts:  # no tensor outputs
-        self._extract_tensor_outputs = None
-      else:  # all outputs will be tensors
-        self._extract_tensor_outputs = flatten
+      self._extract_tensor_outputs = None if not tensor_ts else flatten
     self._dry = self._ctx.create_tagged_loom(tensor_ts, dry_run=True)
     return self
 
@@ -661,8 +659,7 @@ class Compiler(object):
 
   def max_depth(self, inp):
     """Returns the loom `max_depth` needed to evaluate `inp`."""
-    if not self._dry: return 0  # handles PyObject, Void, and () output
-    return self._dry_run(inp)[1]
+    return 0 if not self._dry else self._dry_run(inp)[1]
 
   def _dry_run(self, inp):
     """Does a dry run on `inp`, returns (result, max_depth)."""
@@ -709,9 +706,9 @@ class Compiler(object):
     # Now we can evaluate the loom results, assuming we have a session.
     if session is None:
       session = tf.get_default_session()
-      if session is None:
-        raise ValueError('No default session is registered. Use `with '
-                         'sess.as_default()` or pass a session to eval()')
+    if session is None:
+      raise ValueError('No default session is registered. Use `with '
+                       'sess.as_default()` or pass a session to eval()')
     _init_uninitialized(session)
     tensor_outputs_and_metrics = session.run(
         self.output_tensors + list(self.metric_tensors.values()), feed_dict=fd)

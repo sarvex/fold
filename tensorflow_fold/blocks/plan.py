@@ -85,8 +85,10 @@ def parse_spec(spec):
     for item in tuples:
       key = item[0]
       value = item[1]
-      if not value: raise ValueError('Empty value for key %s' % key)
-      if key in params: raise ValueError('Duplicate key %s' % key)
+      if not value:
+        raise ValueError(f'Empty value for key {key}')
+      if key in params:
+        raise ValueError(f'Duplicate key {key}')
       try:
         params[key] = ast.literal_eval(value)
       except ValueError:
@@ -120,18 +122,15 @@ def build_learning_rate_decay_from_params(
     raise ValueError('Missing algorithm field')
   algorithm = learning_rate_decay_params.pop('algorithm')
   if algorithm not in _DECAY_CLASSES:
-    raise ValueError('Unknown algorithm: %s' % algorithm)
+    raise ValueError(f'Unknown algorithm: {algorithm}')
   algorithm_class = _DECAY_CLASSES[algorithm]
   if algorithm == 'piecewise_constant':
-    decayed_rate = algorithm_class(x=global_step, **learning_rate_decay_params)
-  else:
-    if learning_rate is None:
-      raise ValueError('Missing learning_rate field')
-    decayed_rate = algorithm_class(
-        learning_rate=learning_rate,
-        global_step=global_step,
-        **learning_rate_decay_params)
-  return decayed_rate
+    return algorithm_class(x=global_step, **learning_rate_decay_params)
+  if learning_rate is None:
+    raise ValueError('Missing learning_rate field')
+  return algorithm_class(learning_rate=learning_rate,
+                         global_step=global_step,
+                         **learning_rate_decay_params)
 
 
 def build_optimizer_from_params(
@@ -165,14 +164,17 @@ def build_optimizer_from_params(
   """
   optimizer_name = re.sub('_', '', optimizer).lower()
   if optimizer_name not in _OPTIMIZER_CLASSES:
-    raise ValueError('Unrecognized optimizer: %s' % optimizer_name)
+    raise ValueError(f'Unrecognized optimizer: {optimizer_name}')
   optimizer_class = _OPTIMIZER_CLASSES[optimizer_name]
 
   # Get the argspec, and figure out which arguments are optional vs mandatory.
   constructor_spec = inspect.getargspec(optimizer_class.__init__)
   constructor_args = set(constructor_spec.args[1:])  # 'self' doesn't count.
-  constructor_optional_args = set(name for name, value in zip(
-      reversed(constructor_spec.args), reversed(constructor_spec.defaults)))
+  constructor_optional_args = {
+      name
+      for name, value in zip(reversed(constructor_spec.args),
+                             reversed(constructor_spec.defaults))
+  }
   constructor_mandatory_args = constructor_args.difference(
       constructor_optional_args)
 
@@ -185,8 +187,7 @@ def build_optimizer_from_params(
   # Make sure all the mandatory arguments have been provided.
   for arg in constructor_mandatory_args:
     if arg not in kwargs:
-      raise ValueError('The %s optimizer requires %s to be set.' % (
-          optimizer_name, arg))
+      raise ValueError(f'The {optimizer_name} optimizer requires {arg} to be set.')
 
   # Add learning rate decay if necessary.
   if learning_rate_decay_params:
@@ -665,13 +666,13 @@ class Plan(object):
   def create_supervisor(self):
     """Creates a TF supervisor for running the plan."""
     self.assert_runnable()
-    self.log_and_print('creating supervisor with logdir %s' % self.logdir)
+    self.log_and_print(f'creating supervisor with logdir {self.logdir}')
     supervisor_kwargs = dict(
         logdir=self.logdir, summary_op=None, global_step=self.global_step,
         save_summaries_secs=self.save_summaries_secs,
         summary_writer=(tf.train.Supervisor.USE_DEFAULT
                         if self.compute_summaries else None))
-    supervisor_kwargs.update(self._supervisor_kwargs())
+    supervisor_kwargs |= self._supervisor_kwargs()
     return tf.train.Supervisor(**supervisor_kwargs)
 
   def _supervisor_kwargs(self):
@@ -707,7 +708,7 @@ class Plan(object):
       session.add_tensor_filter('has_inf_or_nan', tf_debug.has_inf_or_nan)
 
     tf.gfile.MakeDirs(self.logdir)
-    self.log_and_print('running %s' % self.mode)
+    self.log_and_print(f'running {self.mode}')
     with session.as_default():
       if self.num_multiprocess_processes == 0:
         self._run(supervisor, session)
@@ -729,7 +730,7 @@ class Plan(object):
       self._best_loss = loss
       save_path = os.path.join(self.logdir, 'model.ckpt')
       save_fname = saver.save(session, save_path, global_step=step)
-      self.log_and_print('new best model saved in file: %s' % save_fname)
+      self.log_and_print(f'new best model saved in file: {save_fname}')
 
   def _eval_batches(self, supervisor, session, batches, step, is_dev=False):
     """Runs a batchwise eval.
@@ -895,8 +896,11 @@ class TrainPlan(Plan):
     # weaver messages, which are represented as strings.
     return ctor(
         capacity=self.queue_capacity or 4 * self.batch_size,
-        min_after_dequeue=0, dtypes=[tf.string], shapes=[tf.TensorShape([])],
-        shared_name='tensorflow_fold_plan_queue%s' % queue_id)
+        min_after_dequeue=0,
+        dtypes=[tf.string],
+        shapes=[tf.TensorShape([])],
+        shared_name=f'tensorflow_fold_plan_queue{queue_id}',
+    )
 
   def _num_queues(self):
     return min(self.ps_tasks, self.num_dequeuers)
@@ -924,7 +928,7 @@ class TrainPlan(Plan):
                          'specifying num_dequeuers')
       return super(TrainPlan, self).init_loom(**loom_kwargs)
     if self.ps_tasks < 1:
-      raise ValueError('must have at least one PS task; %s' % self.ps_tasks)
+      raise ValueError(f'must have at least one PS task; {self.ps_tasks}')
     min_worker_replicas = self._num_queues() + self.num_dequeuers
     if self.worker_replicas < min_worker_replicas:
       raise ValueError(
@@ -949,7 +953,7 @@ class TrainPlan(Plan):
 
     if self.compute_summaries:
       for q in queues:
-        self.metrics['queue_sizes/%s' % q.name] = q.size()
+        self.metrics[f'queue_sizes/{q.name}'] = q.size()
 
     # First num_dequeuers tasks dequeue, the remainder enqueue.
     if self.task < self.num_dequeuers:
@@ -1037,7 +1041,7 @@ class TrainPlan(Plan):
         if dev_size is None: return  # should_stop returned true
         if epoch == 1: self.log_and_print('train_size: %d dev_size: %d' %
                                           (train_size, dev_size))
-        log_str += ' dev[%s]' % _eval_str(dev_size, dev_loss, dev_metrics)
+        log_str += f' dev[{_eval_str(dev_size, dev_loss, dev_metrics)}]'
         self.log_and_print(log_str)
         self._save_best(session, supervisor.saver, dev_loss, results['step'])
       else:
@@ -1047,7 +1051,7 @@ class TrainPlan(Plan):
       save_path = os.path.join(self.logdir, 'model.ckpt')
       save_fname = supervisor.saver.save(
           session, save_path, global_step=results['step'])
-      self.log_and_print('final model saved in file: %s' % save_fname)
+      self.log_and_print(f'final model saved in file: {save_fname}')
 
   def _by_feed_dict(self, feed_dict):
     """Setup for reading training data from feed dictionaries."""
@@ -1143,7 +1147,7 @@ class EvalPlan(_StreamingPlan):
             self._report_loss_and_save_best(supervisor, session, step, *results)
             if self._should_stop(supervisor): break
           else:
-            self.log_and_print('not running eval because step=%s' % step)
+            self.log_and_print(f'not running eval because step={step}')
         sleep_time = self.eval_interval_secs - (time.time() - start_time)
         if sleep_time > 0: time.sleep(sleep_time)
     elif self._restore(supervisor, session):
@@ -1173,10 +1177,10 @@ class EvalPlan(_StreamingPlan):
     if ckpt is None:
       ckpt = tf.train.get_checkpoint_state(self.logdir_restore)
     if ckpt and ckpt.model_checkpoint_path:
-      self.log_and_print('restoring from %s' % ckpt.model_checkpoint_path)
+      self.log_and_print(f'restoring from {ckpt.model_checkpoint_path}')
       supervisor.saver.restore(session, ckpt.model_checkpoint_path)
       return True
-    self.log_and_print('could not restore from %s' % self.logdir_restore)
+    self.log_and_print(f'could not restore from {self.logdir_restore}')
     return False
 
 
@@ -1287,8 +1291,8 @@ def _tf_nth(fns, n):
     with tf.control_dependencies([
         tf.Assert(final_pred, [n, len(fns)], name='nth_index_error')]):
       return final_fn()
-  if len(fns) == 1: return default()
-  return tf.case(cases, default)
+
+  return default() if len(fns) == 1 else tf.case(cases, default)
 
 
 def _noised_q_sizes(queues):

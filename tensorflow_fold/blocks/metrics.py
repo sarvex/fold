@@ -81,7 +81,7 @@ class Metric(tdb.Block):
 
   def __init__(self, metric_name):
     if not isinstance(metric_name, six.string_types):
-      raise TypeError('metric_name must be a string: %s' % (metric_name,))
+      raise TypeError(f'metric_name must be a string: {metric_name}')
     self._metric_name = metric_name
     super(Metric, self).__init__(name=str(metric_name),
                                  output_type=tdt.VoidType())
@@ -91,12 +91,11 @@ class Metric(tdb.Block):
   def _update_input_type(self):
     if isinstance(self.input_type, tdt.TupleType):
       if len(self.input_type) != 2:
-        raise TypeError('metric tuple input must have 2 items: %s' %
-                        self.input_type)
+        raise TypeError(f'metric tuple input must have 2 items: {self.input_type}')
       if not isinstance(self.input_type[0], tdt.TensorType):
-        raise TypeError('expected a tensor type, saw: %s' % self.input_type[0])
+        raise TypeError(f'expected a tensor type, saw: {self.input_type[0]}')
       if not isinstance(self.input_type[1], tdt.PyObjectType):
-        raise TypeError('expected a pyobj type, saw: %s' % self.input_type[1])
+        raise TypeError(f'expected a pyobj type, saw: {self.input_type[1]}')
       self._evaluate = self._evaluate_labeled
       self._metric_type = self.input_type[0]
     else:

@@ -614,8 +614,11 @@ class BlocksTest(test_lib.TestCase):
 
   def test_serialized_message_to_tree_raises(self):
     self.assertRaisesWithLiteralMatch(
-        TypeError, 'message type name must be a string; 42 has %s' % int,
-        tdb.SerializedMessageToTree, 42)
+        TypeError,
+        f'message type name must be a string; 42 has {int}',
+        tdb.SerializedMessageToTree,
+        42,
+    )
 
   def test_get_item_pyobject(self):
     self.assertBuildsConst(2., tdb.GetItem(1) >> tdb.Scalar(), [1, 2, 3])

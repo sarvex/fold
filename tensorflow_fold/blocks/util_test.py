@@ -26,14 +26,14 @@ class UtilTest(test_lib.TestCase):
 
   def test_edible_iterator_int(self):
     with self.test_session() as sess:
-      i = util.EdibleIterator(x for x in [2, 4, 6])
+      i = util.EdibleIterator(iter([2, 4, 6]))
       x = tf.placeholder(tf.int32)
       self.assertEqual([4, 8, 12], sess.run(x + x, {x: i}).tolist())
       self.assertEqual([3, 5, 7], sess.run(x + 1, {x: i}).tolist())
 
   def test_edible_iterator_str(self):
     with self.test_session() as sess:
-      i = util.EdibleIterator(x for x in ['foo', 'bar'])
+      i = util.EdibleIterator(iter(['foo', 'bar']))
       x = tf.placeholder(tf.string)
       self.assertEqual(b'foo', sess.run(x[0], {x: i}))
       self.assertEqual(b'bar', sess.run(x[1], {x: i}))

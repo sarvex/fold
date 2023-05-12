@@ -27,7 +27,7 @@ FOLDS = ['test', 'dev', 'train']
 
 
 def main(_):
-  print('loading word embeddings from %s' % FLAGS.embedding_file)
+  print(f'loading word embeddings from {FLAGS.embedding_file}')
   weight_matrix, word_idx = sentiment.load_embeddings(FLAGS.embedding_file)
 
   with tf.Session() as sess:
@@ -37,11 +37,11 @@ def main(_):
         word_embedding, word_idx, FLAGS.lstm_num_units)
     saver = tf.train.Saver()
     saver.restore(sess, FLAGS.checkpoint_file)
-    print('model restored from file: %s' % FLAGS.checkpoint_file)
+    print(f'model restored from file: {FLAGS.checkpoint_file}')
 
-    print('evaluating on trees from %s' % FLAGS.tree_dir)
+    print(f'evaluating on trees from {FLAGS.tree_dir}')
     with compiler.multiprocessing_pool():
-      filenames = [os.path.join(FLAGS.tree_dir, '%s.txt' % f) for f in FOLDS]
+      filenames = [os.path.join(FLAGS.tree_dir, f'{f}.txt') for f in FOLDS]
       for filename in filenames:
         trees = sentiment.load_trees(filename)
         print('file: %s, #trees: %d' % (filename, len(trees)))

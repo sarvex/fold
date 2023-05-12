@@ -32,7 +32,7 @@ class TypeTest(test_lib.TestCase):
     t2 = constructor(*constructor_args)
     self.assertEqual(t1, t2)
     self.assertEqual(t1.__hash__(), t2.__hash__())
-    self.assertEqual(set([t1, t2]), set([constructor(*constructor_args)]))
+    self.assertEqual({t1, t2}, {constructor(*constructor_args)})
 
 
 class VoidTypeTest(TypeTest):
@@ -101,7 +101,7 @@ class TupleTypeTest(TypeTest):
     self.assertEqual(len(t), 2)
     self.assertEqual(t[0], tdt.TensorType(()))
     self.assertEqual(t[:], t)
-    self.assertEqual(t[0:1], tdt.TupleType(tdt.TensorType(())))
+    self.assertEqual(t[:1], tdt.TupleType(tdt.TensorType(())))
 
   def test_size(self):
     scalar = tdt.TensorType(())

@@ -58,7 +58,7 @@ class CalculatorLoom(object):
 
     for n in xrange(10):
       # Note: the examples only have the numbers 0 through 9 as terminal nodes.
-      name = 'terminal_' + str(n)
+      name = f'terminal_{str(n)}'
       self._named_tensors[name] = tf.Variable(
           tf.truncated_normal([embedding_length],
                               dtype=tf.float32,
@@ -85,7 +85,7 @@ class CalculatorLoom(object):
 
   def _build_expression(self, weaver, expression):
     if expression.HasField('number'):
-      return weaver.named_tensor('terminal_' + str(expression.number))
+      return weaver.named_tensor(f'terminal_{str(expression.number)}')
 
     left_expression = self._build_expression(weaver, expression.left)
     right_expression = self._build_expression(weaver, expression.right)

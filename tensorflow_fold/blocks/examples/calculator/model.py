@@ -35,8 +35,7 @@ def preprocess_expression(expr):
 
 def result_sign(result):
   if result < 0: return 0
-  if result == 0: return 1
-  return 2
+  return 1 if result == 0 else 2
 
 
 class CalculatorModel(object):
@@ -60,8 +59,7 @@ class CalculatorModel(object):
     # Each operation uses different weights in the FC layer.
     def bin_op(name):
       return (td.Record([('left', expr_decl()), ('right', expr_decl())]) >>
-              td.Concat() >>
-              td.FC(state_size, name='FC_'+name))
+              td.Concat() >> td.FC(state_size, name=f'FC_{name}'))
 
     # OneOf will dispatch its input to the appropriate case, based on the value
     # in the 'op'.'name' field.

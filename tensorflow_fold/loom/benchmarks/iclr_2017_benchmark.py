@@ -65,9 +65,7 @@ def make_random_tree(size):
 
 def make_sequence_tree(size):
   """Make a maximally unbalanced tree (a sequence) with size nodes."""
-  if size <= 1:
-    return 0
-  return (make_sequence_tree(size-1), 0)
+  return 0 if size <= 1 else (make_sequence_tree(size-1), 0)
 
 
 def make_balanced_tree(size):
@@ -79,13 +77,13 @@ def make_balanced_tree(size):
 
 def make_input_tree(size):
   """Make a tree based on the value of the tree_type flag."""
-  if FLAGS.tree_type == "sequence":
-    return make_sequence_tree(size)
-  elif FLAGS.tree_type == "balanced":
+  if FLAGS.tree_type == "balanced":
     return make_balanced_tree(size)
   elif FLAGS.tree_type == "random":
     return make_random_tree(size)
-  raise ValueError("Invalid tree type: %s." % FLAGS.tree_type)
+  elif FLAGS.tree_type == "sequence":
+    return make_sequence_tree(size)
+  raise ValueError(f"Invalid tree type: {FLAGS.tree_type}.")
 
 
 def index_type():
@@ -174,9 +172,7 @@ class NonTerminalOp(loom.LoomOp):
 
     ylr = tf.add(tf.multiply(fl, left), tf.multiply(fr, right))
     ygi = tf.multiply(i, g)
-    y = tf.add(ylr, ygi)
-
-    return y
+    return tf.add(ylr, ygi)
 
   def __call__(self, left, right):
     if FLAGS.tree_lstm:
@@ -429,11 +425,7 @@ class LoomModel(ModelBase):
 def test_model(model_class, *args):
   """Do a timing test for a model on a range of batch sizes."""
   test_results = {}
-  if FLAGS.quick_run:
-    batch_size_list = [1, 1024]
-  else:
-    batch_size_list = [1, 32, 64, 128, 256, 1024]
-
+  batch_size_list = [1, 1024] if FLAGS.quick_run else [1, 32, 64, 128, 256, 1024]
   for batch_size in batch_size_list:
     test_results[batch_size] = ([], [])
     for _ in six.moves.xrange(0, FLAGS.num_epochs):
@@ -501,11 +493,7 @@ def main(unused_argv):
   loom_results = test_model(LoomModel, False)
   loom_results_proper = test_model(LoomModel, True)
 
-  if FLAGS.tree_lstm:
-    model_type = "GRU"
-  else:
-    model_type = "FC"
-
+  model_type = "GRU" if FLAGS.tree_lstm else "FC"
   _logger.info("====================================================")
   _logger.info("Num epochs: %d; repeats per epoch %d",
                FLAGS.num_epochs, FLAGS.num_repeats)

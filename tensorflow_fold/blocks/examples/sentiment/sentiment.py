@@ -140,8 +140,7 @@ def tokenize(s):
 
 def add_metrics(is_root, is_neutral):
   """A block that adds metrics for loss and hits; output is the LSTM state."""
-  c = td.Composition(
-      name='predict(is_root=%s, is_neutral=%s)' % (is_root, is_neutral))
+  c = td.Composition(name=f'predict(is_root={is_root}, is_neutral={is_neutral})')
   with c.scope():
     # destructure the input; (label, (logits, state))
     y_ = c.input[0]

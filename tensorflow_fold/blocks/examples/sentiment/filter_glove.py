@@ -51,7 +51,7 @@ def main(_):
           out.write(line + '\n')
           nwrote += 1
 
-  print('read %s lines, wrote %s' % (nread, nwrote))
+  print(f'read {nread} lines, wrote {nwrote}')
 
 if __name__ == '__main__':
   tf.app.run()

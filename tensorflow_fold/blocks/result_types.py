@@ -49,8 +49,9 @@ class ResultType(object):
     return repr(self) < repr(other)
 
   def __repr__(self):
-    return '%s(%s)' % (type(self).__name__,
-                       ', '.join(repr(x) for x in self._repr_args()))
+    return (
+        f"{type(self).__name__}({', '.join(repr(x) for x in self._repr_args())})"
+    )
 
   def _repr_args(self):
     return []
@@ -116,7 +117,7 @@ class TensorType(ResultType):
       TypeError: If `dtype` cannot be converted to a TF dtype.
     """
     if not isinstance(shape, (tuple, list)):
-      raise TypeError('shape must be a tuple or list: %s' % str(shape))
+      raise TypeError(f'shape must be a tuple or list: {str(shape)}')
     self._type_shape = loom.TypeShape(dtype, shape)
 
   def _repr_args(self):
@@ -189,7 +190,7 @@ class TupleType(ResultType, collections.Sequence):
       item_types = tuple(item_types[0])
     for i, item_type in enumerate(item_types):
       if not isinstance(item_type, ResultType):
-        raise TypeError('item_types[%s] is not a type: %s' % (i, item_type))
+        raise TypeError(f'item_types[{i}] is not a type: {item_type}')
     self._item_types = item_types
 
   def _repr_args(self):
@@ -236,7 +237,7 @@ class SequenceType(ResultType):
       TypeError: If `elem_type` is not a type.
     """
     if not isinstance(elem_type, ResultType):
-      raise TypeError('%s is not a type' % str(elem_type))
+      raise TypeError(f'{str(elem_type)} is not a type')
     self._elem_type = elem_type
 
   def _repr_args(self):
@@ -304,7 +305,7 @@ def convert_to_type(type_like):
   if isinstance(type_like, tf.TensorShape):
     # Check this *before* calling as_list() otherwise it throws.
     if not type_like.is_fully_defined():
-      raise TypeError('shape %s is not fully defined' % type_like)
+      raise TypeError(f'shape {type_like} is not fully defined')
     return TensorType(type_like.as_list())
   if isinstance(type_like, tuple):
     return TupleType(convert_to_type(item) for item in type_like)
@@ -313,11 +314,11 @@ def convert_to_type(type_like):
       return TensorType(type_like[:-1], dtype=type_like[-1])
     else:
       return TensorType(type_like)
-  if isinstance(type_like, tf.DType) or isinstance(type_like, six.string_types):
+  if isinstance(type_like, (tf.DType, six.string_types)):
     return TensorType((), dtype=type_like)
   if isinstance(type_like, numbers.Integral):
     return TensorType((type_like,))
-  raise TypeError('Cannot covert %s to a type.' % (type_like,))
+  raise TypeError(f'Cannot covert {type_like} to a type.')
 
 
 def canonicalize_type(type_like):
@@ -383,8 +384,8 @@ class _TypeVariable(object):
       self._update()
     elif typ != self.value:
       raise TypeError(
-          'Type mismatch between %s type %s and expected %s type %s in %s.' %
-          (self._name, typ, self._name, self.value, self._contained_by))
+          f'Type mismatch between {self._name} type {typ} and expected {self._name} type {self.value} in {self._contained_by}.'
+      )
 
   @property
   def expected(self):
@@ -400,8 +401,9 @@ class _TypeVariable(object):
     if not expected:
       new_types_str = ' or '.join(x.__name__ for x in type_classes)
       old_types_str = ' or '.join(x.__name__ for x in self._expected)
-      raise TypeError('bad %s type %s for %s, expected %s' % (
-          self._name, new_types_str, self._contained_by, old_types_str))
+      raise TypeError(
+          f'bad {self._name} type {new_types_str} for {self._contained_by}, expected {old_types_str}'
+      )
     self._expected = expected
 
 
@@ -410,7 +412,7 @@ class IOBase(object):
 
   def __init__(self, input_type=None, output_type=None, name=None):
     if name is not None and not isinstance(name, six.string_types):
-      raise TypeError('name must be a string: %s' % (name,))
+      raise TypeError(f'name must be a string: {name}')
     self._name = name
     def gen_update_and_propagate(update):
       """Returns a function that calls update(), then self.propagate_types()."""
@@ -418,6 +420,7 @@ class IOBase(object):
         update()
         self._propagate_types()
       return update_and_propagate
+
     self._input_type = _TypeVariable(
         'input', self, self._expected_input_types,
         gen_update_and_propagate(self._update_input_type))
@@ -432,7 +435,7 @@ class IOBase(object):
   _expected_output_types = None
 
   def __str__(self):
-    return '<%s.%s>' % (type(self).__name__, self.name)
+    return f'<{type(self).__name__}.{self.name}>'
 
   @property
   def name(self):
@@ -542,8 +545,8 @@ class IOBase(object):
 
   def _check_input_type(self):
     if self.input_type is None:
-      raise TypeError('Cannot determine input type for %s.' % self.name)
+      raise TypeError(f'Cannot determine input type for {self.name}.')
 
   def _check_output_type(self):
     if self.output_type is None:
-      raise TypeError('Cannot determine output type for %s.' % self.name)
+      raise TypeError(f'Cannot determine output type for {self.name}.')

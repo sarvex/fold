@@ -66,12 +66,11 @@ class TypeShape(_TypeShape):
         raise TypeError('Specify only one of tensor and shape.')
       dtype = tensor.dtype
       shape = tensor.get_shape().as_list()
-    elif not (isinstance(dtype, tf.DType) or
-              isinstance(dtype, six.string_types)):
+    elif not (isinstance(dtype, (tf.DType, six.string_types))):
       raise TypeError('%r is not a tf.DType or string' % (dtype,))
     dtype = tf.as_dtype(dtype).base_dtype.name
     if not all(isinstance(s, numbers.Integral) and s >= 0 for s in shape):
-      raise TypeError('shape must be non-negative integers: %s' % shape)
+      raise TypeError(f'shape must be non-negative integers: {shape}')
     shape = tuple(int(s) for s in shape)
     if not isinstance(tag, six.string_types):
       raise TypeError('A TypeShape tag must be a string; type of %r is %s' %
@@ -88,8 +87,9 @@ class TypeShape(_TypeShape):
     # Just to make sure we don't include characters that aren't allowed in TF
     # opnames, we strip all the non-word characters from the tag.
     tag = re.sub(r'\W+', '', self.tag)
-    if tag: tag = '_'+tag
-    return '%s_%s%s' % (self.dtype, '_'.join(str(x) for x in self.shape), tag)
+    if tag:
+      tag = f'_{tag}'
+    return f"{self.dtype}_{'_'.join(str(x) for x in self.shape)}{tag}"
 
   def __str__(self):
     """Stringifies all the fields of the typeshape for pretty printing."""
@@ -418,16 +418,15 @@ class Loom(object):
     if extra_type_shapes is not None:
       type_shape_set.update(extra_type_shapes)
 
-    # _type_shapes: a list of all the typeshapes this loom object supports.
-    self._type_shapes = sorted(type_shape_set)
-
     # Enforce uniqueness for non-empty TypeShape tags.
     non_empty_tags = set()
+    self._type_shapes = sorted(type_shape_set)
     for ts in self._type_shapes:
       if ts.tag:
         if ts.tag in non_empty_tags:
-          raise TypeError('Tags on tagged TypeShapes must be unique; '
-                          '%s occured more than once.' % (ts.tag,))
+          raise TypeError(
+              f'Tags on tagged TypeShapes must be unique; {ts.tag} occured more than once.'
+          )
         else:
           non_empty_tags.add(ts.tag)
 
@@ -458,7 +457,7 @@ class Loom(object):
       self._ts_idx_to_tensor_names[ts_idx].append(name)
 
   def _pass_through_name(self, ts):
-    return '_pass_through_' + ts.tensor_flow_name()
+    return f'_pass_through_{ts.tensor_flow_name()}'
 
   def _setup_loom_ops(self, named_ops):
     """Sets up mappings between loom ops, loom op ids, and loom op names."""
@@ -845,8 +844,8 @@ class Weaver(object):
         named_tensor = self._weaver.GetNamedTensor(ts_idx, name_idx)
         if named_tensor == -1:
           raise AssertionError(
-              'Failed to GetNamedTensor in Weaver wrapper for %s error: %s.' %
-              (name, self._weaver.error_string()))
+              f'Failed to GetNamedTensor in Weaver wrapper for {name} error: {self._weaver.error_string()}.'
+          )
         self._tensor_name_to_result[name] = named_tensor
 
     # Set up the syntactic sugar:
@@ -869,18 +868,15 @@ class Weaver(object):
     if not all(isinstance(a, six.integer_types) for a in args):
       raise TypeError('All args passed to call_op must be integers '
                       '(LoomResult ids.)  Did you forget to call constant?')
-    result = self._weaver.CallOp(op_idx, args)
-    if not result:
-      raise AssertionError('Weaver op call failed: %s' %
-                           self._weaver.error_string())
-    if len(result) == 1:
-      return result[0]
-    return result
+    if result := self._weaver.CallOp(op_idx, args):
+      return result[0] if len(result) == 1 else result
+    else:
+      raise AssertionError(f'Weaver op call failed: {self._weaver.error_string()}')
 
   def _deserialize(self, weaver_message_str):
     if not self._weaver.Deserialize(weaver_message_str):
       raise AssertionError(
-          'Weaver Deserialization failed: %s' % self._weaver.error_string())
+          f'Weaver Deserialization failed: {self._weaver.error_string()}')
 
   def serialize(self):
     """Turn this Weaver into a serialized `WeaverMessage` proto.
@@ -891,11 +887,11 @@ class Weaver(object):
     Raises:
       AssertionError: if the serialization fails.
     """
-    serialization = self._weaver.Serialize()
-    if not serialization:
+    if serialization := self._weaver.Serialize():
+      return serialization
+    else:
       raise AssertionError(
-          'Weaver Serialization failed: %s' % self._weaver.error_string())
-    return serialization
+          f'Weaver Serialization failed: {self._weaver.error_string()}')
 
   @property
   def deepest(self):
@@ -954,8 +950,8 @@ class Weaver(object):
     try:
       ts_idx = self._loom._type_shape_to_idx[type_shape]
     except KeyError:
-      raise TypeError('Constant is not of a recognized TypeShape: %s' %
-                      str(type_shape))
+      raise TypeError(
+          f'Constant is not of a recognized TypeShape: {str(type_shape)}')
     if self._loom._direct_feed_dict:
       constant = self._weaver.BatchInput(ts_idx, len(self._constants[ts_idx]))
       self._constants[ts_idx].append(value)
@@ -964,8 +960,8 @@ class Weaver(object):
       # is very slow, taking e.g. 35 usec for a vector of 10 float32s.
       constant = self._weaver.MakeConstantSerialized(ts_idx, value.tobytes())
     if constant == -1:
-      raise AssertionError('Weaver Constant creation failed: %s' %
-                           self._weaver.error_string())
+      raise AssertionError(
+          f'Weaver Constant creation failed: {self._weaver.error_string()}')
     return constant
 
   def batch_input(self, type_shape, batch_idx):
@@ -985,12 +981,12 @@ class Weaver(object):
     try:
       ts_idx = self._loom._type_shape_to_idx[type_shape]
     except KeyError:
-      raise TypeError('Constant is not of a recognized TypeShape: %s' %
-                      str(type_shape))
+      raise TypeError(
+          f'Constant is not of a recognized TypeShape: {str(type_shape)}')
     batch_input = self._weaver.BatchInput(ts_idx, batch_idx)
     if batch_input == -1:
-      raise AssertionError('Weaver Batch Input creation failed: %s' %
-                           self._weaver.error_string())
+      raise AssertionError(
+          f'Weaver Batch Input creation failed: {self._weaver.error_string()}')
     return batch_input
 
   def op(self, op_name, args):
@@ -1013,17 +1009,16 @@ class Weaver(object):
     try:
       op_idx = self._loom._loom_op_name_to_idx[op_name]
     except KeyError:
-      raise NameError('Loom Op not found: %s' % str(op_name))
+      raise NameError(f'Loom Op not found: {str(op_name)}')
 
     if not all(isinstance(a, six.integer_types) for a in args):
       raise TypeError('All args passed to call_op must be integers '
                       '(LoomResult ids.)  Did you forget to call constant?')
 
-    op_result = self._weaver.CallOp(op_idx, args)
-    if not op_result:
-      raise AssertionError('Weaver op call failed: %s' %
-                           self._weaver.error_string())
-    return op_result
+    if op_result := self._weaver.CallOp(op_idx, args):
+      return op_result
+    else:
+      raise AssertionError(f'Weaver op call failed: {self._weaver.error_string()}')
 
   def __call__(self, val, tag=''):
     """diagram(...) is syntactic sugar for diagram.constant(...)."""
@@ -1035,8 +1030,7 @@ class Weaver(object):
       raise TypeError('add_output must be called with an integer '
                       '(LoomResult id.)  Did you forget to call constant?')
     if not self._weaver.AddOutput(result):
-      raise AssertionError('Weaver AddOutput failed: %s' %
-                           self._weaver.error_string())
+      raise AssertionError(f'Weaver AddOutput failed: {self._weaver.error_string()}')
 
   def build_feed_dict(self, outputs=None):
     """Turn this diagram into a dictionary for feed_dict.

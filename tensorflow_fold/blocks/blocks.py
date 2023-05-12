@@ -91,13 +91,13 @@ class Block(tdt.IOBase):
       self._propagate_types_from_child(child)
 
   def __repr__(self):
-    strs = [self._constructor_name or ('td.%s' % type(self).__name__)]
+    strs = [self._constructor_name or f'td.{type(self).__name__}']
     if self._name: strs.append('%r' % self._name)
     for k, v in sorted(six.iteritems(self._repr_kwargs())):
       if isinstance(v, functools.partial): v = v.func
       if hasattr(v, '__name__'): v = v.__name__
       strs.append('%s=%r' % (k, v))
-    return '<%s>' % ' '.join(strs)
+    return f"<{' '.join(strs)}>"
 
   def _repr_kwargs(self):
     return {}
@@ -108,8 +108,7 @@ class Block(tdt.IOBase):
   def set_constructor_name(self, constructor_name):
     """Sets the constructor name, used for repr() and str(). Returns `self`."""
     if not isinstance(constructor_name, six.string_types):
-      raise TypeError('constructor name must be a string; %s' %
-                      (constructor_name,))
+      raise TypeError(f'constructor name must be a string; {constructor_name}')
     self._constructor_name = constructor_name
     return self
 
@@ -139,7 +138,7 @@ class Block(tdt.IOBase):
   def _add_child(self, b):
     assert isinstance(b, Block)  # internal consistency check
     if b.parent is not None:
-      raise TypeError('block %s is already a child of %s' % (b, b.parent))
+      raise TypeError(f'block {b} is already a child of {b.parent}')
     b._parent = self  # pylint:disable=protected-access
     self._children.append(b)
 
@@ -232,8 +231,7 @@ class Block(tdt.IOBase):
     pass
 
   def _evaluate(self, eval_ctx, x):
-    raise NotImplementedError('Block %s does not implement _evaluate.' %
-                              str(self))
+    raise NotImplementedError(f'Block {str(self)} does not implement _evaluate.')
 
   def eval(self, inp, feed_dict=None, session=None, tolist=False,
            use_while_loop=True):
@@ -345,21 +343,18 @@ class FromTensor(Block):
     if isinstance(tensor, np.ndarray):
       tensor = tf.constant(tensor)
     elif not isinstance(tensor, (tf.Tensor, tf.Variable)):
-      raise TypeError('%s is not a tensor or np.ndarray' % str(tensor))
+      raise TypeError(f'{str(tensor)} is not a tensor or np.ndarray')
     shape, dtype = tensor.get_shape(), tensor.dtype
     # Check this *before* calling as_list() otherwise it throws.
     if not shape.is_fully_defined():
-      raise TypeError(
-          'shape %s is not fully defined; call set_shape()' % shape)
+      raise TypeError(f'shape {shape} is not fully defined; call set_shape()')
     shape = shape.as_list()
     if name is None:
-      try:  # undocumented, but tensor.name throws if tensor is unnamed
+      with contextlib.suppress(ValueError):
         name = tensor.name
         # undocumented, name can be unicode
         if six.PY2 and isinstance(name, unicode):
           name = name.encode('ascii', 'replace')
-      except ValueError:
-        pass
     self._tensor = tensor
     super(FromTensor, self).__init__(
         name=name, input_type=tdt.VoidType(),
@@ -400,7 +395,7 @@ class Function(Block):
         you will probably need to call `set_output_type()` explicitly.
     """
     if not callable(tf_fn):
-      raise TypeError('tf_fn is not callable: %s' % str(tf_fn))
+      raise TypeError(f'tf_fn is not callable: {str(tf_fn)}')
     super(Function, self).__init__(name=name)
     self._tf_fn = tf_fn
     if _is_layer(self._tf_fn): self.set_io_types(self._tf_fn)
@@ -418,14 +413,14 @@ class Function(Block):
 
   def _update_input_type(self):
     if self.input_type.size is None:
-      raise TypeError('function inputs must be tensors: %s' % self.input_type)
+      raise TypeError(f'function inputs must be tensors: {self.input_type}')
     if not list(self.input_type.terminal_types()):
       raise TypeError('functions must take at least one tensor input')
     if _is_layer(self.tf_fn): self.set_io_types(self.tf_fn)
 
   def _update_output_type(self):
     if self.output_type.size is None:
-      raise TypeError('function outputs must be tensors: %s' % self.output_type)
+      raise TypeError(f'function outputs must be tensors: {self.output_type}')
     if not list(self.output_type.terminal_types()):
       raise TypeError('functions must return at least one tensor output')
     if _is_layer(self.tf_fn): self.set_io_types(self.tf_fn)
@@ -470,7 +465,7 @@ class InputTransform(Block):
 
   def __init__(self, py_fn, name=None):
     if not callable(py_fn):
-      raise TypeError('py_fn is not callable: %s' % str(py_fn))
+      raise TypeError(f'py_fn is not callable: {str(py_fn)}')
     self._py_fn = py_fn
     super(InputTransform, self).__init__(
         [], input_type=tdt.PyObjectType(), output_type=tdt.PyObjectType(),
@@ -507,8 +502,9 @@ def SerializedMessageToTree(message_type_name):  # pylint: disable=invalid-name
 
   """
   if not isinstance(message_type_name, six.string_types):
-    raise TypeError('message type name must be a string; %s has %s' %
-                    (message_type_name, type(message_type_name)))
+    raise TypeError(
+        f'message type name must be a string; {message_type_name} has {type(message_type_name)}'
+    )
   return InputTransform(functools.partial(
       proto_tools.serialized_message_to_tree, message_type_name),
                         name=message_type_name).set_constructor_name(
@@ -542,8 +538,8 @@ class GetItem(Block):
 
   def _update_input_type(self):
     if isinstance(self.input_type, tdt.BroadcastSequenceType):
-      raise TypeError('cannot get an item from an infinite sequence: %s' %
-                      self.input_type)
+      raise TypeError(
+          f'cannot get an item from an infinite sequence: {self.input_type}')
     if isinstance(self.input_type, tdt.TupleType):
       self.set_output_type(self.input_type[self._key])
     elif (isinstance(self.input_type, tdt.SequenceType) and
@@ -571,8 +567,8 @@ class Length(Block):
 
   def _update_input_type(self):
     if isinstance(self.input_type, tdt.BroadcastSequenceType):
-      raise TypeError('cannot get the length of an infinite sequence: %s' %
-                      self.input_type)
+      raise TypeError(
+          f'cannot get the length of an infinite sequence: {self.input_type}')
 
   def _evaluate(self, eval_ctx, x):
     return eval_ctx.constant(np.asarray(len(x), self._dtype))
@@ -675,7 +671,7 @@ class _ForwardDeclarationRef(Block):
     # We assume that it has the declared input and output types, and then
     # verify that later.
     if self.target_block is None:
-      raise TypeError('Forward declaration %s was never resolved.' % self.name)
+      raise TypeError(f'Forward declaration {self.name} was never resolved.')
     # Set input and output on the target block; these will be checked
     # later when the target block is validated.
     self.set_io_types(self.target_block)
@@ -697,7 +693,7 @@ class _ComposeIO(Identity):
       placeholder_name = 'output'
       self._update_parent = parent.set_output_type
     super(_ComposeIO, self).__init__(name=parent_name)
-    self.set_constructor_name('td.Composition.%s' % placeholder_name)
+    self.set_constructor_name(f'td.Composition.{placeholder_name}')
     self._parent = parent
 
   def _update_input_type(self):
@@ -820,9 +816,7 @@ class Composition(Block):
     """Return the value on input_wire, given child results."""
     (a, i) = input_wire
     res = results[self._child_to_index[a]]
-    if i is not None:
-      return res[i]
-    return res
+    return res[i] if i is not None else res
 
   def _get_input_values(self, input_wires, results):
     if not input_wires:
@@ -838,26 +832,23 @@ class Composition(Block):
     for a, i in input_wires:
       if a.output_type is None: return None
       wire_types.append(a.output_type if i is None else a.output_type[i])
-    if len(wire_types) == 1: return wire_types[0]
-    return tdt.TupleType(wire_types)
+    return wire_types[0] if len(wire_types) == 1 else tdt.TupleType(wire_types)
 
   def _maybe_add_child(self, child):
     if isinstance(child, _ComposeIO):
       if child.parent != self:
-        raise ValueError('%s is the input or output of a different composition'
-                         % child)
+        raise ValueError(f'{child} is the input or output of a different composition')
     elif child not in self._children:
       self._add_child(child)
 
   def _create_input_wires(self, a):
     # TODO(delesley): write test cases for error conditions
-    if isinstance(a, _InputWire):   # disabiguate from tuple, below
-      input_wires = (a,)
+    if isinstance(a, _InputWire): # disabiguate from tuple, below
+      return (a,)
     elif isinstance(a, (tuple, list)):
-      input_wires = tuple(self._make_input_wire(ai) for ai in a)
+      return tuple(self._make_input_wire(ai) for ai in a)
     else:
-      input_wires = (self._make_input_wire(a),)
-    return input_wires
+      return (self._make_input_wire(a),)
 
   def connect(self, a, b):
     """Connect `a` to the input of `b`.
@@ -892,7 +883,7 @@ class Composition(Block):
       raise ValueError('cannot write to composition input')
 
     if b in self._child_input_wire_dict:
-      raise ValueError('input of block is already connected: %s' % (b,))
+      raise ValueError(f'input of block is already connected: {b}')
     self._child_input_wire_dict[b] = input_wires
     if b is self.output: self._output_wires = input_wires
 
@@ -969,14 +960,13 @@ class Composition(Block):
     # Check that all child outputs are used.
     unused = [b for b in sinks if not isinstance(b.output_type, tdt.VoidType)]
     if unused:
-      raise TypeError('children have unused outputs: %s' %
-                      ', '.join(str(u) for u in unused))
+      raise TypeError(
+          f"children have unused outputs: {', '.join(str(u) for u in unused)}")
 
     # Corner case: set input type to Void if all children have Void input.
-    if self.input_type is None:
-      if all([isinstance(child.input_type, tdt.VoidType)
-              for child in self._children]):
-        self.set_input_type(tdt.VoidType())
+    if self.input_type is None and all(
+        isinstance(child.input_type, tdt.VoidType) for child in self._children):
+      self.set_input_type(tdt.VoidType())
 
     # Check that composition has an input type.
     self._check_input_type()
@@ -985,7 +975,7 @@ class Composition(Block):
     if not (self._output_wires or isinstance(self.output_type, tdt.VoidType)):
       # We could infer void output type here but more likely the user made a
       # mistake, so we throw unless the VoidType was set explicitly.
-      raise TypeError('Composition block has no output: %s' % self)
+      raise TypeError(f'Composition block has no output: {self}')
     self._check_output_type()
 
   def _evaluate(self, eval_ctx, x):
@@ -995,8 +985,7 @@ class Composition(Block):
       in_x = self._get_input_values(self._child_input_wires[i], ch_results)
       r = b._evaluate(eval_ctx, in_x)
       ch_results.append(r)
-    final_result = self._get_input_values(self._output_wires, ch_results)
-    return final_result
+    return self._get_input_values(self._output_wires, ch_results)
 
 
 def Pipe(*blocks, **kwargs):  # pylint: disable=invalid-name
@@ -1016,10 +1005,10 @@ def Pipe(*blocks, **kwargs):  # pylint: disable=invalid-name
     A block.
   """
   blocks = [convert_to_block(b) for b in blocks]
-  blocks = [b for b in blocks if not isinstance(b, Identity)]
-  if not blocks: return Identity(**kwargs)
-  if len(blocks) == 1: return blocks[0]
-  return _pipe(blocks, **kwargs)
+  if blocks := [b for b in blocks if not isinstance(b, Identity)]:
+    return blocks[0] if len(blocks) == 1 else _pipe(blocks, **kwargs)
+  else:
+    return Identity(**kwargs)
 
 
 def _pipe(blocks, name=None):
@@ -1126,12 +1115,12 @@ class Record(Block):
         b.set_output_type(t)
 
   def _propagate_types_from_child(self, _):
-    if not any(b.input_type is None for b in self.children):
+    if all(b.input_type is not None for b in self.children):
       self.set_input_type(tdt.TupleType(b.input_type for b in self.children))
     self._infer_output_type_from_children()
 
   def _infer_output_type_from_children(self):
-    if not any(b.output_type is None for b in self.children):
+    if all(b.output_type is not None for b in self.children):
       self.set_output_type(tdt.TupleType(b.output_type for b in self.children))
 
   def _evaluate(self, eval_ctx, x):
@@ -1268,8 +1257,7 @@ class Fold(Block):
 
   def _update_input_type(self):
     if isinstance(self.input_type, tdt.BroadcastSequenceType):
-      raise TypeError('cannot fold over an infinite sequence: %s' %
-                      self.input_type)
+      raise TypeError(f'cannot fold over an infinite sequence: {self.input_type}')
     self._update_output_type()
 
   def _update_output_type(self):
@@ -1327,14 +1315,14 @@ class _RNN(Block):
 
   def _update_input_type(self):
     if len(self.input_type) != 2:
-      raise TypeError('Expected a two-tuple of (input_sequence, state), saw: %s'
-                      % (self.input_type,))
+      raise TypeError(
+          f'Expected a two-tuple of (input_sequence, state), saw: {self.input_type}'
+      )
     in_seq_ty, in_st_ty = self.input_type
     if not isinstance(in_seq_ty, tdt.SequenceType):
-      raise TypeError('First RNN input must be a sequence: %s' % (in_seq_ty,))
+      raise TypeError(f'First RNN input must be a sequence: {in_seq_ty}')
     if isinstance(in_seq_ty, tdt.BroadcastSequenceType):
-      raise TypeError('cannot run an RNN on an infinite sequence: %s' %
-                      (in_seq_ty,))
+      raise TypeError(f'cannot run an RNN on an infinite sequence: {in_seq_ty}')
     self.rnn_cell_block.set_input_type((in_seq_ty.element_type, in_st_ty))
     self._check_state_type()
 
@@ -1344,7 +1332,7 @@ class _RNN(Block):
                       '%s' % (self.output_type,))
     out_seq_ty, out_st_ty = self.output_type
     if not isinstance(out_seq_ty, tdt.SequenceType):
-      raise TypeError('First RNN output must be a sequence: %s' % (out_seq_ty,))
+      raise TypeError(f'First RNN output must be a sequence: {out_seq_ty}')
     self.rnn_cell_block.set_output_type((out_seq_ty.element_type, out_st_ty))
     self._check_state_type()
 
@@ -1355,25 +1343,19 @@ class _RNN(Block):
                       '%s vs. %s' % (self.input_type[1], self.output_type[1]))
 
   def _propagate_types_from_child(self, _):
-    # Infer input_type from rnn_cell_block.
-    in_ty = self._rnn_cell_block.input_type
-    if in_ty:
+    if in_ty := self._rnn_cell_block.input_type:
       if not isinstance(in_ty, tdt.TupleType):
         raise TypeError('RNN cell must take a tuple as input.')
       if len(in_ty) != 2:
-        raise TypeError('Expected a two-tuple of (input_elem, state), saw: %s' %
-                        (in_ty,))
+        raise TypeError(f'Expected a two-tuple of (input_elem, state), saw: {in_ty}')
       in_el_ty, in_st_ty = in_ty
       self.set_input_type((tdt.SequenceType(in_el_ty), in_st_ty))
-    # Infer output_type from rnn_cell_block.
-    out_ty = self._rnn_cell_block.output_type
-    if out_ty:
+    if out_ty := self._rnn_cell_block.output_type:
       if not isinstance(out_ty, tdt.TupleType):
         raise TypeError('RNN cell must produce a tuple as output.')
       out_el_ty, out_st_ty = out_ty
       if len(out_ty) != 2:
-        raise TypeError('Expected a two-tuple of (output_elem, state), saw: %s'
-                        % (out_ty,))
+        raise TypeError(f'Expected a two-tuple of (output_elem, state), saw: {out_ty}')
       self.set_output_type((tdt.SequenceType(out_el_ty), out_st_ty))
 
   def _evaluate(self, eval_ctx, x):
@@ -1439,8 +1421,7 @@ def RNN(cell, initial_state=None,             # pylint: disable=invalid-name
     if cell.output_type is None:
       raise TypeError('cannot infer initial_state type from cell')
     if not isinstance(cell.output_type, tdt.TupleType):
-      raise TypeError('RNN cell must have tuple output type: %s' %
-                      cell.output_type)
+      raise TypeError(f'RNN cell must have tuple output type: {cell.output_type}')
     _, state_type = cell.output_type
     initial_state = Zeros(state_type)
   else:
@@ -1483,8 +1464,7 @@ class Reduce(Block):
 
   def _update_input_type(self):
     if isinstance(self.input_type, tdt.BroadcastSequenceType):
-      raise TypeError('cannot reduce an infinite sequence: %s' %
-                      (self.input_type,))
+      raise TypeError(f'cannot reduce an infinite sequence: {self.input_type}')
     elem_type = _infer_element_type(self.input_type)
     self._combine_block.set_input_type(tdt.TupleType(elem_type, elem_type))
     self.set_output_type(elem_type)
@@ -1598,7 +1578,7 @@ class OneOf(Block):
           tdt.PyObjectType())
     except TypeError:
       if not callable(key_fn):
-        raise TypeError('key_fn is not callable: %s' % str(key_fn))
+        raise TypeError(f'key_fn is not callable: {str(key_fn)}')
       self._key_block = InputTransform(key_fn)
     if not case_blocks: raise ValueError('case_blocks must be non-empty')
     named_cases = _get_sorted_list(case_blocks)
@@ -1721,18 +1701,18 @@ class Concat(Function):
 
   def _update_input_type(self):
     if self.input_type.size is None:
-      raise TypeError('Concat inputs must be tensors: %s' % self.input_type)
+      raise TypeError(f'Concat inputs must be tensors: {self.input_type}')
     if (not self._flatten and
         any(isinstance(t, tdt.TupleType) for t in self.input_type)):
-      raise TypeError('input type %s contains nested tuples, expected a flat '
-                      'tuple of tensors; set flatten=True in the constructor' %
-                      self.input_type)
+      raise TypeError(
+          f'input type {self.input_type} contains nested tuples, expected a flat tuple of tensors; set flatten=True in the constructor'
+      )
 
-    size = 0
     shape = None
     dtype = None
     self._scalar_indices = []
-    for (i, ty) in enumerate(self.input_type.terminal_types()):
+    size = 0
+    for i, ty in enumerate(self.input_type.terminal_types()):
       tyshape = list(ty.shape)         # clone original shape
       tyrank = len(tyshape)
       if tyrank == 0:
@@ -1753,8 +1733,8 @@ class Concat(Function):
       if not dtype:
         dtype = ty.dtype
       elif ty.dtype != dtype:
-        raise TypeError('Cannot concat tensors of different dtypes: %s vs. %s'
-                        % (dtype, ty.dtype))
+        raise TypeError(
+            f'Cannot concat tensors of different dtypes: {dtype} vs. {ty.dtype}')
     if not dtype:
       raise TypeError('Concat requires at least one tensor as input')
     shape[self._concat_dim] = size
@@ -1809,7 +1789,7 @@ class Zip(_SeqToSeqBlock):
       raise TypeError('zip requires at least one input sequence')
     for item_type in self.input_type:
       if not isinstance(item_type, (tdt.SequenceType, tdt.PyObjectType)):
-        raise TypeError('item types must be sequences: %s' % str(item_type))
+        raise TypeError(f'item types must be sequences: {str(item_type)}')
     elem_type = tdt.TupleType(_infer_element_type(t) for t in self.input_type)
     self._infer_output_type(elem_type)
 
@@ -1846,7 +1826,8 @@ class NGrams(_SeqToSeqBlock):
   """
 
   def __init__(self, n, name=None):
-    if n <= 0: raise ValueError('n must be positive: %s' % str(n))
+    if n <= 0:
+      raise ValueError(f'n must be positive: {str(n)}')
     self._n = n
     super(NGrams, self).__init__(name=name)
 
@@ -1940,10 +1921,10 @@ def OneHotFromList(elements, dtype='float32', strict=True, name=None):  # pylint
   """
   dimension = len(elements)
 
-  tensors = {}
-  for idx, basis_vector in enumerate(np.identity(dimension, dtype)):
-    tensors[idx] = FromTensor(basis_vector)
-
+  tensors = {
+      idx: FromTensor(basis_vector)
+      for idx, basis_vector in enumerate(np.identity(dimension, dtype))
+  }
   indices = {elt: idx for idx, elt in enumerate(elements)}
   assert len(indices) == dimension, (
       'OneHotFromList was passed duplicate elements.')
@@ -1974,14 +1955,14 @@ class Nth(Block):
 
   def _update_input_type(self):
     if len(self.input_type) != 2:
-      raise TypeError('Nth block takes 2 inputs %s' % list(self.input_type))
+      raise TypeError(f'Nth block takes 2 inputs {list(self.input_type)}')
     seq_type, n_type = self.input_type
     if not isinstance(seq_type, tdt.SequenceType):
-      raise TypeError('first input to Nth must be a sequence: %s' % seq_type)
+      raise TypeError(f'first input to Nth must be a sequence: {seq_type}')
     if isinstance(seq_type, tdt.BroadcastSequenceType):
-      raise TypeError('cannot call Nth on an infinite sequence: %s' % seq_type)
+      raise TypeError(f'cannot call Nth on an infinite sequence: {seq_type}')
     if not isinstance(n_type, tdt.PyObjectType):
-      raise TypeError('second input to Nth must be a PyObject: %s' % n_type)
+      raise TypeError(f'second input to Nth must be a PyObject: {n_type}')
     self.set_output_type(seq_type.element_type)
 
   def _evaluate(self, _, x):
@@ -2010,14 +1991,14 @@ def Zeros(output_type, name=None):  # pylint: disable=invalid-name
   output_type = tdt.convert_to_type(output_type)
   if not all(isinstance(t, tdt.TensorType)
              for t in output_type.terminal_types()):
-    raise TypeError('all terminal types must be tensors: %s' % output_type)
+    raise TypeError(f'all terminal types must be tensors: {output_type}')
   if isinstance(output_type, tdt.TensorType):
     result = FromTensor(np.zeros_like(output_type), name=name)
   elif isinstance(output_type, tdt.TupleType):
     result = AllOf(*[Zeros(itype) for itype in output_type], name=name)
   elif isinstance(output_type, tdt.BroadcastSequenceType):
-    raise TypeError('cannot create Zeros for an infinite sequence type: %s' %
-                    output_type)
+    raise TypeError(
+        f'cannot create Zeros for an infinite sequence type: {output_type}')
   elif isinstance(output_type, tdt.VoidType):
     result = Void(name=name)
   else:
@@ -2060,7 +2041,7 @@ def convert_to_block(block_like):
   if isinstance(block_like, (tf.Tensor, tf.Variable, np.ndarray)):
     return FromTensor(block_like)
   if isinstance(block_like, (dict, list, tuple)): return Record(block_like)
-  raise TypeError('%s cannot be converted to a block' % str(block_like))
+  raise TypeError(f'{str(block_like)} cannot be converted to a block')
 
 
 # Misc. internal helpers go here.
@@ -2075,11 +2056,11 @@ def _infer_element_type(result_type):
   elif isinstance(result_type, tdt.TupleType):
     if not result_type: raise TypeError('expected a non-empty tuple')
     if len(set(result_type)) != 1:
-      raise TypeError('tuple item types must all be equal: %s' % result_type)
+      raise TypeError(f'tuple item types must all be equal: {result_type}')
     return result_type[0]
   else:
-    raise TypeError('Expected python object or sequence or tuple: %s' %
-                    str(result_type))
+    raise TypeError(
+        f'Expected python object or sequence or tuple: {str(result_type)}')
 
 
 def _get_sorted_list(named_children):
@@ -2091,8 +2072,9 @@ def _get_sorted_list(named_children):
   elif isinstance(named_children, dict):
     named_children = sorted(six.iteritems(named_children))
   elif not isinstance(named_children, list):
-    raise TypeError('expected a list or tuple or dictionary of child blocks: %s'
-                    % str(named_children))
+    raise TypeError(
+        f'expected a list or tuple or dictionary of child blocks: {str(named_children)}'
+    )
   return [(k, convert_to_block(v)) for k, v in named_children]
 
 
@@ -2115,16 +2097,17 @@ def _type_from_outputs(outputs):
 def _type_from_batch_tensor(tensor):
   """Computes instance type from a tensor representing a batch of instances."""
   if not isinstance(tensor, (tf.Tensor, tf.Variable)):
-    raise TypeError('%s is not a TF tensor' % str(tensor))
+    raise TypeError(f'{str(tensor)} is not a TF tensor')
   shape = tensor.get_shape()
-  if shape.ndims is None: raise TypeError('%s has unspecified rank' % tensor)
+  if shape.ndims is None:
+    raise TypeError(f'{tensor} has unspecified rank')
   if not shape.ndims:
     raise TypeError('expected a batch tensor, saw a scalar: %s', tensor)
   if shape[0].value is not None:
-    raise TypeError('leading (batch) dimension should be None: %s' % tensor)
+    raise TypeError(f'leading (batch) dimension should be None: {tensor}')
   shape = shape[1:]  # drop the batch dimension
   if not shape.is_fully_defined():
-    raise TypeError('instance shape is not fully defined: %s' % tensor)
+    raise TypeError(f'instance shape is not fully defined: {tensor}')
   return tdt.TensorType(shape.as_list(), tensor.dtype)
 
 
